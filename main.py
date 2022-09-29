@@ -1,6 +1,6 @@
 import argparse, json
 from class_snapbot import Snapbot4EnvClass, Snapbot3EnvClass
-from class_policy import SnapbotTrajectoryUpdateClass
+from class_policy_cvae import SnapbotTrajectoryUpdateClass
 
 def main(args):
     if args.env == int(4):

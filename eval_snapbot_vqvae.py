@@ -2,7 +2,7 @@ import torch, glob, os
 import numpy as np
 import matplotlib.image as mpimg
 from class_snapbot import Snapbot4EnvClass, Snapbot3EnvClass
-from class_policy_vqvae import SnapbotTrajectoryUpdateClass
+from class_policy_gqvae import SnapbotTrajectoryUpdateClass
 from class_grp import *
 from utils import *
 
