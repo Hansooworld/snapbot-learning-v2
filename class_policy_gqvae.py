@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn 
 import torch.optim as optim
 from class_snapbot import Snapbot4EnvClass
-from class_gqvae import VectorQuantizedVariationalAutoEncoder
+from class_gqvae import GumbelQuantizedVariationalAutoEncoder
 from utils import *
 from class_pid import PIDControllerClass
 from class_grp import GaussianRandomPathClass, scaleup_traj, get_anchors_from_traj
@@ -54,7 +54,7 @@ class SnapbotTrajectoryUpdateClass():
         self.VERBOSE     = VERBOSE
         # Set grp & pid & qscaler
         self.PID   = PIDControllerClass(name="PID", k_p=k_p, k_i=k_i, k_d=k_d, dim=self.env.adim, out_min=out_min, out_max=out_max, ANTIWU=ANTIWU)
-        self.DLPG  = VectorQuantizedVariationalAutoEncoder(name='GQVAE', x_dim=env.adim*n_anchor, c_dim=c_dim, z_dim=z_dim, h_dims=h_dims, \
+        self.DLPG  = GumbelQuantizedVariationalAutoEncoder(name='GQVAE', x_dim=env.adim*n_anchor, c_dim=c_dim, z_dim=z_dim, h_dims=h_dims, \
                                                             embedding_num=embedding_num, embedding_dim=embedding_dim, tau_scale=tau_scale, kld_scale=kld_scale, \
                                                             actv_enc=nn.ReLU(), actv_dec=nn.ReLU(), actv_q=nn.Softplus(), actv_out=None, device=self.device)
         self.QScaler      = ScalerClass(obs_dim=1)
@@ -249,5 +249,5 @@ if __name__ == "__main__":
                                         n_sim_prev_best_q   = 50,
                                         init_prior_prob = 0.5,
                                         folder = 19,
-                                        WANDB  = True
+                                        WANDB  = False
                                         )

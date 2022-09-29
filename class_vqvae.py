@@ -5,37 +5,51 @@ import torch.nn as nn
 import torch.nn.functional as F 
 import matplotlib.pyplot as plt
 
-class GumbelQuantizer(nn.Module):
+
+class VectorQuantizer(nn.Module):
     def __init__(
-                self, 
-                z_dim, 
-                embedding_num, 
-                embedding_dim,
-                tau_scale = 1.0,
-                kld_scale = 5e-4,
-                straight_through=False):
-        super(GumbelQuantizer, self).__init__()
-        self.embedding_num    = embedding_num
-        self.embedding_dim    = embedding_dim
-        self.straight_through = straight_through
-        self.tau_scale  = tau_scale
-        self.kld_scale  = kld_scale
-        self.projection = nn.Linear(z_dim, self.embedding_num)
-        self.embedding  = nn.Embedding(self.embedding_num, embedding_dim)
+                self,
+                embedding_num   = 10,
+                embedding_dim   = 3,
+                commitment_beta = 0.25,
+                device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+                ):
+        super(VectorQuantizer, self).__init__()
+        self.embedding_num   = embedding_num
+        self.embedding_dim   = embedding_dim
+        self.commitment_beta = commitment_beta
+        self.device    = device
+        self.embedding = nn.Embedding(self.embedding_num, self.embedding_dim)
         self.embedding.weight.data.uniform_(-1/self.embedding_num, 1/self.embedding_num)
 
-    def forward(self, z):
-        # force hard = True when we are in eval mode, as we must quantize
-        hard   = self.straight_through if self.training else True
-        logits = self.projection(z)
-        soft_one_hot = F.gumbel_softmax(logits, tau=self.tau_scale, dim=1, hard=hard)
-        z_q = torch.matmul(soft_one_hot, self.embedding.weight)
-        # + kl divergence to the prior loss
-        qy   = F.softmax(logits, dim=1)
-        diff = self.kld_scale * torch.sum(qy * torch.log(qy * self.embedding_num + 1e-10), dim=1).mean()
-        return z_q, diff
+    def compute_loss(
+                    self,
+                    z_e,
+                    z_q
+                    ):
+        codebook_loss   = F.mse_loss(z_e.detach(), z_q)
+        commitment_loss = F.mse_loss(z_e, z_q.detach())
+        return codebook_loss + self.commitment_beta*commitment_loss
 
-class GumbelQuantizedVariationalAutoEncoder(nn.Module):
+    def forward(
+                self, 
+                z = torch.randn(1, 15)
+                ):
+        z_dim = z.shape[1]
+        z = z.reshape(-1, int(z_dim/self.embedding_dim), self.embedding_dim)
+        z_e = z.view(-1, self.embedding_dim)
+        distances = torch.sum(z_e**2, dim=1, keepdim=True)\
+                    + torch.sum(self.embedding.weight**2, dim=1, keepdim=False)\
+                    - 2*torch.matmul(z_e, self.embedding.weight.t())
+        q_x = torch.argmin(distances, dim=1).unsqueeze(1)
+        q_x_one_hot = torch.zeros(q_x.shape[0], self.embedding_num).to(self.device)
+        q_x_one_hot.scatter_(1, q_x, 1)
+        z_q  = torch.matmul(q_x_one_hot, self.embedding.weight).view(z.shape)
+        loss = self.compute_loss(z, z_q)
+        z_q = z + (z_q-z).detach()
+        return z_q.reshape(-1, z_dim), loss
+
+class VectorQuantizedVariationalAutoEncoder(nn.Module):
     def __init__(
         self,
         name     = 'VQVAE',              
@@ -45,8 +59,7 @@ class GumbelQuantizedVariationalAutoEncoder(nn.Module):
         h_dims   = [64,32],          # hidden dimensions of encoder (and decoder)
         embedding_num   = 10,        # For VQ parameters
         embedding_dim   = 3,         # For VQ parameters
-        tau_scale = 1.0,             # For VQ parameters
-        kld_scale = 5e-4,            # For VQ parameters 
+        commitment_beta = 0.25,      # For VQ parameters
         actv_enc = nn.ReLU(),        # encoder activation
         actv_dec = nn.ReLU(),        # decoder activation
         actv_q   = nn.Softplus(),    # q activation
@@ -56,23 +69,22 @@ class GumbelQuantizedVariationalAutoEncoder(nn.Module):
         """
             Initialize
         """
-        super(GumbelQuantizedVariationalAutoEncoder, self).__init__()
+        super(VectorQuantizedVariationalAutoEncoder, self).__init__()
         self.name   = name
         self.x_dim  = x_dim
         self.c_dim  = c_dim
         self.z_dim  = z_dim
         self.h_dims = h_dims
-        self.embedding_num = embedding_num
-        self.embedding_dim = embedding_dim
-        self.tau_scale = tau_scale
-        self.kld_scale = kld_scale
+        self.embedding_num   = embedding_num
+        self.embedding_dim   = embedding_dim
+        self.commitment_beta = commitment_beta
         self.actv_enc  = actv_enc
         self.actv_dec  = actv_dec
         self.actv_q    = actv_q
         self.actv_out  = actv_out
         self.device    = device
         # Initialize VQ class
-        self.GQ = GumbelQuantizer(self.z_dim, self.embedding_num, self.embedding_dim, self.tau_scale, self.kld_scale).to(self.device)
+        self.VQ = VectorQuantizer(self.embedding_num, self.embedding_dim, self.commitment_beta, self.device).to(self.device)
         # Initialize layers
         self.init_layers()
         self.init_params()
@@ -110,7 +122,7 @@ class GumbelQuantizedVariationalAutoEncoder(nn.Module):
             if isinstance(layer,nn.Linear):
                 self.param_dict[key+'_w'] = layer.weight
                 self.param_dict[key+'_b'] = layer.bias
-        self.gqvae_parameters = nn.ParameterDict(self.param_dict)
+        self.vqvae_parameters = nn.ParameterDict(self.param_dict)
         
     def xc_to_z(
         self,
@@ -138,7 +150,7 @@ class GumbelQuantizedVariationalAutoEncoder(nn.Module):
         """
             z and c to x_recon
         """
-        net, _ = self.GQ(z)
+        net, _ = self.VQ(z)
         if c is not None:
             net = torch.cat((net,c),dim=1)
         else:
@@ -191,7 +203,7 @@ class GumbelQuantizedVariationalAutoEncoder(nn.Module):
             sample x from codebook
         """
         random_integers  = np.random.permutation(self.embedding_num)[:n_sample]
-        random_embedding = self.GQ.embedding.weight.data[random_integers, :]
+        random_embedding = self.VQ.embedding.weight.data[random_integers, :]
         x_sample = self.z_q_to_x_recon(z_q=random_embedding, c=c).detach().cpu().numpy()
         return x_sample
 
@@ -262,7 +274,7 @@ class GumbelQuantizedVariationalAutoEncoder(nn.Module):
             recon_loss_gain = recon_loss_gain
         )
         z = self.xc_to_z(x, c)
-        _, loss_vq = self.GQ(z)
+        _, loss_vq = self.VQ(z)
         loss_total_out = loss_recon_out + loss_vq
         info           = {'loss_total_out' : loss_total_out,
                           'loss_recon_out' : loss_recon_out,

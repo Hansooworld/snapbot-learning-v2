@@ -4,11 +4,10 @@ import torch
 import torch.nn as nn 
 import torch.optim as optim
 from class_snapbot import Snapbot4EnvClass
-from class_gqvae import GumbelQuantizedVariationalAutoEncoder
+from class_vqvae import VectorQuantizedVariationalAutoEncoder
 from utils import *
 from class_pid import PIDControllerClass
 from class_grp import GaussianRandomPathClass, scaleup_traj, get_anchors_from_traj
-from class_dlpg import DeepLatentPolicyGradientClass
 
 class SnapbotTrajectoryUpdateClass():
     def __init__(self,
@@ -23,10 +22,9 @@ class SnapbotTrajectoryUpdateClass():
                 z_dim    = 32,
                 c_dim    = 3,
                 h_dims   = [128, 128],
-                embedding_num  = 200,
-                embedding_dim  = 32,
-                tau_scale = 1.0,
-                kld_scale = 5e-4,
+                embedding_num   = 200,
+                embedding_dim   = 32,
+                commitment_beta = 0.25,
                 n_anchor = 20,
                 dur_sec  = 2,
                 max_repeat    = 5,
@@ -54,8 +52,8 @@ class SnapbotTrajectoryUpdateClass():
         self.VERBOSE     = VERBOSE
         # Set grp & pid & qscaler
         self.PID   = PIDControllerClass(name="PID", k_p=k_p, k_i=k_i, k_d=k_d, dim=self.env.adim, out_min=out_min, out_max=out_max, ANTIWU=ANTIWU)
-        self.DLPG  = GumbelQuantizedVariationalAutoEncoder(name='GQVAE', x_dim=env.adim*n_anchor, c_dim=c_dim, z_dim=z_dim, h_dims=h_dims, \
-                                                            embedding_num=embedding_num, embedding_dim=embedding_dim, tau_scale=tau_scale, kld_scale=kld_scale, \
+        self.DLPG  = VectorQuantizedVariationalAutoEncoder(name='GQVAE', x_dim=env.adim*n_anchor, c_dim=c_dim, z_dim=z_dim, h_dims=h_dims, \
+                                                            embedding_num=embedding_num, embedding_dim=embedding_dim, commitment_beta=commitment_beta, \
                                                             actv_enc=nn.ReLU(), actv_dec=nn.ReLU(), actv_q=nn.Softplus(), actv_out=None, device=self.device)
         self.QScaler      = ScalerClass(obs_dim=1)
         self.GRPPrior     = GaussianRandomPathClass(name='GRP Prior')
@@ -128,8 +126,8 @@ class SnapbotTrajectoryUpdateClass():
                 else:
                     x_anchor = self.DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1).reshape(self.n_anchor, self.env.adim)
                     x_anchor[-1,:] = x_anchor[0,:]
-                    self.GRPPosterior.set_posterior(t_anchor, x_anchor,lbtw=lbtw, t_test=traj_secs, hyp=self.hyp_poseterior, APPLY_EPSRU=True, t_eps=0.025)
-                    traj_joints, _ = self.GRPPosterior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min, ss_x_max=ss_x_max, ss_margin=ss_margin) 
+                    self.GRPPosterior.set_posterior(t_anchor, x_anchor, lbtw=lbtw, t_test=traj_secs, hyp=self.hyp_poseterior, APPLY_EPSRU=True, t_eps=0.025)
+                    traj_joints, _ = self.GRPPosterior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min, ss_x_max=ss_x_max, ss_margin=ss_margin)
                     traj_joints_deg = scaleup_traj(self.env, np.array(traj_joints), DO_SQUASH=True, squash_margin=5)
                 t_anchor, x_anchor = get_anchors_from_traj(traj_secs, traj_joints, n_anchor=self.n_anchor) 
                 result = rollout(self.env, self.PID, traj_joints_deg, n_traj_repeat=self.max_repeat)
@@ -141,23 +139,32 @@ class SnapbotTrajectoryUpdateClass():
             sim_c_lists[start_epoch] = copy.deepcopy(sim_c_list)
             sim_q_lists[start_epoch] = copy.deepcopy(sim_q_list)
 
-            sim_x_train = np.array(sim_x_lists[:start_epoch+1]).reshape(-1, self.env.adim*self.n_anchor)[:n_sim_roll*(start_epoch+1)]
-            sim_c_train = np.array(sim_c_lists[:start_epoch+1]).reshape(-1, self.c_dim)[:,:n_sim_roll*(start_epoch+1)]
-            sim_q_train = np.array(sim_q_lists[:start_epoch+1]).reshape(-1,1)[:,:n_sim_roll*(start_epoch+1)]
+            for n_prev_idx in range(n_sim_prev_consider):
+                if n_prev_idx == 0:
+                    sim_x_list_bundle = sim_x_list
+                    sim_c_list_bundle = sim_c_list
+                    sim_q_list_bundle = sim_q_list
+                else:
+                    sim_x_list_bundle = np.concatenate((sim_x_list_bundle, sim_x_lists[max(0, start_epoch-n_prev_idx)]), axis=0)
+                    sim_c_list_bundle = np.concatenate((sim_c_list_bundle, sim_c_lists[max(0, start_epoch-n_prev_idx)]), axis=0)
+                    sim_q_list_bundle = np.concatenate((sim_q_list_bundle, sim_q_lists[max(0, start_epoch-n_prev_idx)]))
+            
+            sorted_idx  = np.argsort(-sim_q_list_bundle)
+            sim_x_train = sim_x_list_bundle[sorted_idx[:n_sim_prev_best_q], :]
+            sim_c_train = sim_c_list_bundle[sorted_idx[:n_sim_prev_best_q], :]
+            sim_q_train = sim_q_list_bundle[sorted_idx[:n_sim_prev_best_q]]
 
-            random_integers = np.random.permutation(n_sim_roll*(start_epoch+1))[:n_sim_prev_consider]
-            sim_x_train_rand = sim_x_train[random_integers]
-            sim_c_train_rand = sim_c_train[random_integers]
-            sim_q_train_rand = sim_q_train[random_integers]
+            sim_x_train = np.concatenate((sim_x_train, sim_x_list), axis=0)
+            sim_c_train = np.concatenate((sim_c_train, sim_c_list), axis=0)
+            sim_q_train = np.concatenate((sim_q_train, sim_q_list))
 
-            sorted_idx = np.argsort(-sim_q_train.squeeze())
-            sim_x_train_q = sim_x_train[sorted_idx[:n_sim_prev_consider], :]
-            sim_c_train_q = sim_c_train[sorted_idx[:n_sim_prev_consider], :]
-            sim_q_train_q = sim_q_train[sorted_idx[:n_sim_prev_consider]]
-
-            sim_x_train = np.concatenate((sim_x_train_rand, sim_x_train_q), axis=0)
-            sim_c_train = np.concatenate((sim_c_train_rand, sim_c_train_q), axis=0)
-            sim_q_train = np.concatenate((sim_q_train_rand, sim_q_train_q))
+            rand_idx    = np.random.permutation(sim_x_list_bundle.shape[0])[:n_sim_roll]
+            sim_x_rand  = sim_x_list_bundle[rand_idx, :]
+            sim_c_rand  = sim_c_list_bundle[rand_idx, :]
+            sim_q_rand  = sim_q_list_bundle[rand_idx]
+            sim_x_train = np.concatenate((sim_x_train, sim_x_rand), axis=0)
+            sim_c_train = np.concatenate((sim_c_train, sim_c_rand), axis=0)
+            sim_q_train = np.concatenate((sim_q_train, sim_q_rand))
 
             self.QScaler.reset()
             self.QScaler.update(sim_q_train)
@@ -216,10 +223,9 @@ if __name__ == "__main__":
                                                                 z_dim    = 32,
                                                                 c_dim    = 3,
                                                                 h_dims   = [128, 128],
-                                                                embedding_num  = 100,
-                                                                embedding_dim  = 32,
-                                                                tau_scale = 1.0,
-                                                                kld_scale = 2e-4,
+                                                                embedding_num   = 100,
+                                                                embedding_dim   = 32,
+                                                                commitment_beta = 0.25,
                                                                 n_anchor = 20,
                                                                 dur_sec  = 2,
                                                                 max_repeat    = 5,
@@ -232,13 +238,13 @@ if __name__ == "__main__":
     SnapbotTrajectoryUpdateClass.update(
                                         seed = 0,
                                         start_epoch = 0,
-                                        max_epoch   = 500,
+                                        max_epoch   = 300,
                                         n_sim_roll          = 100,
                                         sim_update_size     = 64,
                                         n_sim_update        = 64,
-                                        n_sim_prev_consider = 100,
+                                        n_sim_prev_consider = 10,
                                         n_sim_prev_best_q   = 50,
                                         init_prior_prob = 0.5,
-                                        folder = 20,
-                                        WANDB  = True
+                                        folder = 19,
+                                        WANDB  = False
                                         )
