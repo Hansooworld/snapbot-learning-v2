@@ -225,7 +225,7 @@ class GaussianRandomPathClass():
             samples.append(sample)
         return samples,self.t_test
 
-    def sample_one_traj(self,rand_type='Gaussian',ORG_PERTURB=False,perturb_gain=1.0):
+    def sample_one_traj(self,rand_type='Gaussian',ORG_PERTURB=False,perturb_gain=1.0,ss_x_min=None,ss_x_max=None,ss_margin=None):
         """
             Sample a single trajectory
         """
@@ -242,7 +242,9 @@ class GaussianRandomPathClass():
             D = sample_traj.shape[1]
             pvec = 2.0*perturb_gain*np.random.rand(1,D)-perturb_gain
             sample_traj = sample_traj + np.tile(pvec,(L,1))
-
+        if (ss_x_min is not None) and (ss_x_max is not None) and (ss_margin is not None):
+            sample_traj = soft_squash_multidim(
+                x=sample_traj,x_min=ss_x_min,x_max=ss_x_max,margin=ss_margin)
         return sample_traj,self.t_test
     
     def plot(self,
