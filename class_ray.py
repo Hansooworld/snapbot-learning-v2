@@ -7,13 +7,9 @@ class RayRolloutWorkerClass:
     def __init__(self, env, device=None, worker_id=1) -> None:
         self.env    = env(render_mode=None, VERBOSE=False)
         self.device = device
-        print("init worker {}".format(worker_id))
+        print("worker_{} ready.".format(worker_id))
 
-    def generate_trajectory(self, DLPG, lbtw, dur_sec, hyp_prior, hyp_posterior, GRPPrior, GRPPosterior, prior_prob, start_epoch, n_anchor, t_anchor, traj_secs):
-        ss_x_min  = -np.ones(self.env.adim)
-        ss_x_max  = np.ones(self.env.adim)
-        ss_margin = 0.05
-
+    def generate_trajectory(self, DLPG, lbtw, dur_sec, hyp_prior, hyp_posterior, GRPPrior, GRPPosterior, ss_x_min, ss_x_max, ss_margin, prior_prob, start_epoch, n_anchor, t_anchor, traj_secs):
         exploration_coin = np.random.rand()
         if self.env.condition is not None:
             condition_coin = np.random.uniform(0, 1)

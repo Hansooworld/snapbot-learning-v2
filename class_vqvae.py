@@ -207,6 +207,18 @@ class VectorQuantizedVariationalAutoEncoder(nn.Module):
         x_sample = self.z_q_to_x_recon(z_q=random_embedding, c=c).detach().cpu().numpy()
         return x_sample
 
+    def sample_x_with_codebook_index(
+        self,
+        c = torch.randn(2,10),
+        specify_idx  = None
+        ):
+        """
+            sample x from codebook
+        """
+        specify_embedding = self.VQ.embedding.weight.data[specify_idx, :].reshape(-1, self.embedding_dim)
+        x_sample = self.z_q_to_x_recon(z_q=specify_embedding, c=c).detach().cpu().numpy()
+        return x_sample
+            
     def init_params(self,seed=0):
         """
             Initialize parameters
@@ -283,23 +295,24 @@ class VectorQuantizedVariationalAutoEncoder(nn.Module):
 
     def update(
         self,
-        x  = torch.randn(2,784),
-        c  = torch.randn(2,10),
-        q  = torch.ones(2),
-        lr = 0.001,
+        x   = torch.randn(2,784),
+        c   = torch.randn(2,10),
+        q   = torch.ones(2),
+        lr  = 0.001,
+        eps = 1e-4,
         recon_loss_gain = 1,
         max_iter   = 100,
         batch_size = 100
         ):
-        optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=(0.9, 0.99), eps=1e-4)
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=(0.9, 0.99), eps=eps)
         loss_sum  = 0
         n_x       = x.shape[0]
         for n_iter in range(max_iter):
             self.train()
-            rand_idx   = np.random.permutation(n_x)[:batch_size]
-            x_batch    = torch.FloatTensor(x[rand_idx, :]).to(self.device)
-            c_batch    = torch.FloatTensor(c[rand_idx, :]).to(self.device)
-            q_batch    = torch.FloatTensor(q[rand_idx]).to(self.device)
+            rand_idx = np.random.permutation(n_x)[:batch_size]
+            x_batch  = torch.FloatTensor(x[rand_idx, :]).to(self.device)
+            c_batch  = torch.FloatTensor(c[rand_idx, :]).to(self.device)
+            q_batch  = torch.FloatTensor(q[rand_idx]).to(self.device)
             total_loss, _ = self.loss_total(x=x_batch, c=c_batch, q=q_batch, LOSS_TYPE='L2', recon_loss_gain=recon_loss_gain)
             loss_sum += total_loss.item()
             optimizer.zero_grad()
