@@ -45,7 +45,7 @@ def eval_snapbot_from_network(env, embedding_num, dur_sec, n_anchor, max_repeat,
         # x_anchor = EvalPolicy.DLPG.sample_x(c=torch.FloatTensor(condition).reshape(1,-1).to(EvalPolicy.device), n_sample=1).reshape(EvalPolicy.n_anchor, EvalPolicy.env.adim)
         x_anchor = EvalPolicy.DLPG.sample_x_with_codebook_index(c=torch.FloatTensor(condition).reshape(1,-1).to(EvalPolicy.device), specify_idx=i).reshape(-1, EvalPolicy.env.adim)
         x_anchor[-1,:] = x_anchor[0,:]
-        EvalPolicy.GRPPosterior.set_posterior(t_anchor,x_anchor,lbtw=0.9,t_test=traj_secs,hyp=EvalPolicy.hyp_poseterior,APPLY_EPSRU=True,t_eps=0.025)
+        EvalPolicy.GRPPosterior.set_posterior(t_anchor,x_anchor,lbtw=0.9,t_test=traj_secs,hyp=EvalPolicy.hyp_posterior,APPLY_EPSRU=True,t_eps=0.025)
         policy4eval_traj, traj_secs = EvalPolicy.GRPPosterior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min,ss_x_max=ss_x_max,ss_margin=ss_margin)
         policy4eval_traj = scaleup_traj(EvalPolicy.env, policy4eval_traj, DO_SQUASH=True, squash_margin=5)
         policy4eval = rollout(EvalPolicy.env, EvalPolicy.PID, policy4eval_traj, n_traj_repeat=EvalPolicy.max_repeat, RENDER=RENDER, PLOT=PLOT)
@@ -72,4 +72,4 @@ def eval_snapbot_from_network(env, embedding_num, dur_sec, n_anchor, max_repeat,
 
 if  __name__ == "__main__":
     env = Snapbot4EnvClass(render_mode=None)
-    eval_snapbot_from_network(env=env, dur_sec=2, embedding_num=10, n_anchor=20, max_repeat=5, folder=28, epoch=250,  condition=[0,1,0], RENDER=True, PLOT=True)
+    eval_snapbot_from_network(env=env, dur_sec=2, embedding_num=10, n_anchor=20, max_repeat=5, folder=31, epoch=300,  condition=[0,1,0], RENDER=True, PLOT=True)
