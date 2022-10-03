@@ -1,6 +1,6 @@
 python main_vqvae.py \
 --env 4 \
---torque 1.5 \
+--torque 1.7 \
 --z_dim 32 \
 --c_dim 3 \
 --h_dims 128 128 \
@@ -13,19 +13,19 @@ python main_vqvae.py \
 --hyp_prior '{"g":"1/1", "l":"1/8", "w":"1e-8"}' \
 --hyp_posterior '{"g": "1/1", "l": "1/8", "w": "1e-8"}' \
 --lbtw_base 0.8 \
---device_idx 0 \
+--device_idx -1 \
 --VERBOSE True \
 --seed 0 \
---lr_dlpg 0.001 \
---eps_dlpg 1e-8 \
+--lr_dlpg 0.015 \
+--eps_dlpg 1e-9 \
 --n_worker 50 \
 --start_epoch 0 \
---max_epoch 300 \
+--max_epoch 500 \
 --n_sim_roll 100 \
 --sim_update_size 64 \
 --n_sim_update 64 \
 --n_sim_prev_consider 10 \
 --n_sim_prev_best_q 50 \
---init_prior_prob 0.5 \
---folder 23 \
+--init_prior_prob 0.2 \
+--folder 31 \
 --WANDB True
