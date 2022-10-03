@@ -68,8 +68,8 @@ def eval_snapbot_from_network(env, embedding_num, dur_sec, n_anchor, max_repeat,
         # os.remove(filename)
         if idx == n_sample-1:
             break
-    plt.show()
+    # plt.show()
 
 if  __name__ == "__main__":
     env = Snapbot4EnvClass(render_mode=None)
-    eval_snapbot_from_network(env=env, dur_sec=2, embedding_num=10, n_anchor=20, max_repeat=5, folder=31, epoch=300,  condition=[0,1,0], RENDER=True, PLOT=True)
+    eval_snapbot_from_network(env=env, dur_sec=2, embedding_num=10, n_anchor=20, max_repeat=5, folder=31, epoch=150,  condition=[0,1,0], RENDER=True, PLOT=True)

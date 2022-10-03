@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from class_grp import get_anchors_from_traj
 
 class ScalerClass(object):
     """ Generate scale and offset based on running mean and stddev along axis=0
@@ -85,7 +86,7 @@ def rollout(env, PID, traj_scale, n_traj_repeat, RENDER=False, PLOT=False):
     x_diff  = x_final - x_prev
 
     if PLOT is True:
-        t_anchor, x_anchor = None, None
+        t_anchor, x_anchor = get_anchors_from_traj(traj_secs, traj_scale, n_anchor=20)
         figure = plot_snapbot_joint_traj_and_topdown_traj(traj_secs, traj_scale, t_anchor, x_anchor, xy_degs, secs,
                                                 figsize=(16,8), title_str='REWARD: [{:.0f}], X_DIFF: [{:.2f}]'.format(sum(forward_rewards), x_diff), tfs=15)
     else:
