@@ -26,7 +26,8 @@ class RayRolloutWorkerClass:
             traj_joints, traj_secs = GRPPrior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min, ss_x_max=ss_x_max, ss_margin=ss_margin) 
             traj_joints_deg = scaleup_traj(self.env, traj_joints, DO_SQUASH=False, squash_margin=5)
         else:
-            x_anchor = DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1).reshape(n_anchor, self.env.adim)
+            x_anchor, _ = DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1)
+            x_anchor = x_anchor.reshape(n_anchor, self.env.adim)
             x_anchor[-1,:] = x_anchor[0,:]
             GRPPosterior.set_posterior(t_anchor, x_anchor, lbtw=lbtw, t_test=traj_secs, hyp=hyp_posterior, APPLY_EPSRU=True, t_eps=0.025)
             traj_joints, _ = GRPPosterior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min, ss_x_max=ss_x_max, ss_margin=ss_margin)

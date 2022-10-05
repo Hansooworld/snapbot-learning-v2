@@ -114,6 +114,7 @@ class SnapbotTrajectoryUpdateClass():
             n_worker     = n_worker
             self.workers = [RayRolloutWorkerClass.remote(env=Snapbot4EnvClass, device=torch.device('cpu'), worker_id=i) for i in range(int(n_worker))]
             # GRP parameter
+            self.GRPPrior.set_prior(n_data_prior=4, dim=self.env.adim, dur_sec=self.dur_sec, HZ=self.env.hz, hyp=self.hyp_prior)
             traj_joints, traj_secs = self.GRPPrior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0) 
             t_anchor, _ = get_anchors_from_traj(traj_secs, traj_joints, n_anchor=self.n_anchor)
 
@@ -152,13 +153,13 @@ class SnapbotTrajectoryUpdateClass():
                     if (exploration_coin < prior_prob) or (start_epoch < 1):
                         self.GRPPrior.set_prior(n_data_prior=4, dim=self.env.adim, dur_sec=self.dur_sec, HZ=self.env.hz, hyp=self.hyp_prior)
                         traj_joints, traj_secs = self.GRPPrior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min, ss_x_max=ss_x_max, ss_margin=ss_margin) 
-                        traj_joints_deg = scaleup_traj(self.env, traj_joints, DO_SQUASH=True, squash_margin=5)
+                        traj_joints_deg = scaleup_traj(self.env, traj_joints, DO_SQUAS=False, squash_margin=5)
                     else:
-                        x_anchor = self.DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1).reshape(self.n_anchor, self.env.adim)
-                        x_anchor[-1,:] = x_anchor[0,:]
+                        x_anchor, _ = self.DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1)
+                        x_anchor = x_anchor.reshape(self.n_anchor, self.env.adim)
                         self.GRPPosterior.set_posterior(t_anchor, x_anchor, lbtw=lbtw, t_test=traj_secs, hyp=self.hyp_posterior, APPLY_EPSRU=True, t_eps=0.025)
                         traj_joints, _ = self.GRPPosterior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min, ss_x_max=ss_x_max, ss_margin=ss_margin)
-                        traj_joints_deg = scaleup_traj(self.env, np.array(traj_joints), DO_SQUASH=True, squash_margin=5)
+                        traj_joints_deg = scaleup_traj(self.env, np.array(traj_joints), DO_SQUASH=False, squash_margin=5)
                     t_anchor, x_anchor = get_anchors_from_traj(traj_secs, traj_joints, n_anchor=self.n_anchor) 
                     result = rollout(self.env, self.PID, traj_joints_deg, n_traj_repeat=self.max_repeat)
                     sim_x_list[sim_idx, :] = x_anchor.reshape(1,-1)
@@ -204,9 +205,10 @@ class SnapbotTrajectoryUpdateClass():
                                     recon_loss_gain=1, max_iter=n_sim_update, batch_size=sim_update_size)
             # For eval
             c = [0,1,0]
-            x_anchor = self.DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1).reshape(self.n_anchor, self.env.adim)
+            x_anchor, codebook_idx = self.DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1)
+            x_anchor = x_anchor.reshape(self.n_anchor, self.env.adim)
             x_anchor[-1,:] = x_anchor[0,:]
-            self.GRPPosterior.set_posterior(t_anchor, x_anchor, lbtw=0.9, t_test=traj_secs, hyp=self.hyp_posterior, APPLY_EPSRU=True, t_eps=0.025)
+            self.GRPPosterior.set_posterior(t_anchor, x_anchor, lbtw=1.0, t_test=traj_secs, hyp=self.hyp_posterior, APPLY_EPSRU=True, t_eps=0.025)
             policy4eval_traj   = self.GRPPosterior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min, ss_x_max=ss_x_max, ss_margin=ss_margin)[0]
             policy4eval_traj   = scaleup_traj(self.env, policy4eval_traj, DO_SQUASH=True, squash_margin=5)
             t_anchor, x_anchor = get_anchors_from_traj(traj_secs, policy4eval_traj, n_anchor=self.n_anchor)  
@@ -228,14 +230,14 @@ class SnapbotTrajectoryUpdateClass():
 
             # For printing evaluation of present policy
             if (start_epoch+1) % 5 == 0 and start_epoch != 0:
-                print("EPOCH: {:>3}, CONDITION: [{}], REWARD: {:>6.2f}, XDIFF: {:>4.3f}".format(start_epoch+1, c, eval_reward, eval_x_diff))
+                print("EPOCH: {:>3}, CONDITION: [{}], REWARD: {:>6.2f}, INDEX: {}, XDIFF: {:>4.3f}".format(start_epoch+1, c, eval_reward, codebook_idx, eval_x_diff))
             
             # Save snapbot's trajectories
             if (start_epoch+1) % 20 == 0 and start_epoch != 0:
                 if not os.path.exists("dlpg/{}/plot".format(folder)):
                     os.makedirs("dlpg/{}/plot".format(folder))
                 plot_snapbot_joint_traj_and_topdown_traj(traj_secs, policy4eval_traj, t_anchor, x_anchor, eval_xy_degs, eval_secs,
-                                                figsize=(16,8), title_str='EPOCH: {:>3} REWARD: {:>6.2f}'.format(start_epoch+1, eval_reward), 
+                                                figsize=(16,8), title_str='EPOCH: {:>3} REWARD: {:>6.2f} INDEX: {}'.format(start_epoch+1, eval_reward, codebook_idx), 
                                                 tfs=15, SAVE=True, image_name='dlpg/{}/plot/epoch_{}.png'.format(folder, start_epoch+1))
             print("[{:>3} / {}] Clear".format(start_epoch+1, max_epoch))
             start_epoch += 1
