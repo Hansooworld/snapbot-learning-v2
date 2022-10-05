@@ -4,28 +4,28 @@ python main_vqvae.py \
 --z_dim 32 \
 --c_dim 3 \
 --h_dims 128 128 \
---embedding_num 10 \
+--embedding_num 100 \
 --embedding_dim 32 \
---commitment_beta 2 \
+--commitment_beta 0.25 \
 --n_anchor 20 \
 --dur_sec 2 \
 --max_repeat 5 \
 --hyp_prior '{"g":"1/1", "l":"1/8", "w":"1e-8"}' \
---hyp_posterior '{"g": "1/1", "l": "1/8", "w": "1e-8"}' \
+--hyp_posterior '{"g": "1/2", "l": "1/8", "w": "1e-8"}' \
 --lbtw_base 0.8 \
 --device_idx -1 \
 --VERBOSE True \
 --seed 0 \
---lr_dlpg 0.015 \
---eps_dlpg 1e-9 \
+--lr_dlpg 0.01 \
+--eps_dlpg 1e-8 \
 --n_worker 50 \
 --start_epoch 0 \
---max_epoch 500 \
+--max_epoch 300 \
 --n_sim_roll 100 \
---sim_update_size 64 \
---n_sim_update 64 \
+--sim_update_size 50 \
+--n_sim_update 50 \
 --n_sim_prev_consider 10 \
---n_sim_prev_best_q 50 \
---init_prior_prob 0.2 \
---folder 31 \
+--n_sim_prev_best_q 15 \
+--init_prior_prob 0.5 \
+--folder 41 \
 --WANDB True
