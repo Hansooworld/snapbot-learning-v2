@@ -38,7 +38,7 @@ class GumbelQuantizer(nn.Module):
 class GumbelQuantizedVariationalAutoEncoder(nn.Module):
     def __init__(
         self,
-        name     = 'VQVAE',              
+        name     = 'GQVAE',              
         x_dim    = 784,              # input dimension
         c_dim    = 10,               # condition dimension
         z_dim    = 15,               # latent dimension
@@ -271,15 +271,16 @@ class GumbelQuantizedVariationalAutoEncoder(nn.Module):
 
     def update(
         self,
-        x  = torch.randn(2,784),
-        c  = torch.randn(2,10),
-        q  = torch.ones(2),
-        lr = 0.001,
+        x   = torch.randn(2,784),
+        c   = torch.randn(2,10),
+        q   = torch.ones(2),
+        lr  = 0.001,
+        eps = 1e-4,
         recon_loss_gain = 1,
         max_iter   = 100,
         batch_size = 100
         ):
-        optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=(0.9, 0.99), eps=1e-4)
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=(0.9, 0.99), eps=eps)
         loss_sum  = 0
         n_x       = x.shape[0]
         for n_iter in range(max_iter):

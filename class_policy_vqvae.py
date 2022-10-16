@@ -12,7 +12,7 @@ from class_ray import RayRolloutWorkerClass
 
 class SnapbotTrajectoryUpdateClass():
     def __init__(self,
-                name = "SnapbotTrajectoryUpdateClass",
+                name = "VQVAE Trajectory",
                 env  = None,
                 k_p  = 0.2,
                 k_i  = 0.001,
@@ -31,7 +31,7 @@ class SnapbotTrajectoryUpdateClass():
                 max_repeat    = 5,
                 hyp_prior     = {'g': 1/1, 'l': 1/8, 'w': 1e-8},
                 hyp_posterior = {'g': 1/1, 'l': 1/8, 'w': 1e-8},
-                lbtw_base  = 0.8,
+                lbtw_base     = 0.8,
                 device_idx = 0,
                 VERBOSE    = True,
                 WANDB      = False,
@@ -59,7 +59,7 @@ class SnapbotTrajectoryUpdateClass():
         self.args    = args
         # Set grp & pid & qscaler
         self.PID   = PIDControllerClass(name="PID", k_p=k_p, k_i=k_i, k_d=k_d, dim=self.env.adim, out_min=out_min, out_max=out_max, ANTIWU=ANTIWU)
-        self.DLPG  = VectorQuantizedVariationalAutoEncoder(name='GQVAE', x_dim=env.adim*n_anchor, c_dim=c_dim, z_dim=z_dim, h_dims=h_dims, \
+        self.DLPG  = VectorQuantizedVariationalAutoEncoder(name='VQVAE', x_dim=env.adim*n_anchor, c_dim=c_dim, z_dim=z_dim, h_dims=h_dims, \
                                                             embedding_num=embedding_num, embedding_dim=embedding_dim, commitment_beta=commitment_beta, \
                                                             actv_enc=nn.ReLU(), actv_dec=nn.ReLU(), actv_q=nn.Softplus(), actv_out=None, device=self.device)
         self.QScaler      = ScalerClass(obs_dim=1)

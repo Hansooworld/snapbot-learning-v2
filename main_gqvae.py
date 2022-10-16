@@ -1,6 +1,6 @@
 import argparse, json, string
 from class_snapbot import Snapbot4EnvClass, Snapbot3EnvClass
-from class_policy_vqvae import SnapbotTrajectoryUpdateClass
+from class_policy_gqvae import SnapbotTrajectoryUpdateClass
 
 def convert_to_float(frac_str):
     try:
@@ -34,7 +34,8 @@ def main(args):
                                                             h_dims  = args.h_dims,
                                                             embedding_num   = args.embedding_num,
                                                             embedding_dim   = args.embedding_dim,
-                                                            commitment_beta = args.commitment_beta,
+                                                            tau_scale = args.tau_scale,
+                                                            kld_scale = args.kld_scale,
                                                             n_anchor = args.n_anchor,
                                                             dur_sec  = args.dur_sec,
                                                             max_repeat    = args.max_repeat,
@@ -82,7 +83,8 @@ if __name__ == "__main__":
     parser.add_argument("--h_dims", nargs="+", type=int, default=[128, 128])
     parser.add_argument("--embedding_num", default=10, type=int)
     parser.add_argument("--embedding_dim", default=32, type=int)
-    parser.add_argument("--commitment_beta", default=2, type=float)
+    parser.add_argument("--tau_scale", default=1.0, type=float)
+    parser.add_argument("--kld_scale", default=5e-4, type=float)
     parser.add_argument("--n_anchor", default=20, type=int)
     parser.add_argument("--dur_sec", default=2, type=float)
     parser.add_argument("--max_repeat", default=5, type=int)
