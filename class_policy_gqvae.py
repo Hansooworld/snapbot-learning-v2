@@ -206,6 +206,7 @@ class SnapbotTrajectoryUpdateClass():
                                     recon_loss_gain=1, max_iter=n_sim_update, batch_size=sim_update_size)
             # For eval
             c = [0,1,0]
+            self.DLPG.eval()
             x_anchor = self.DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1).reshape(self.n_anchor, self.env.adim)
             x_anchor[-1,:] = x_anchor[0,:]
             self.GRPPosterior.set_posterior(t_anchor, x_anchor, lbtw=0.9, t_test=traj_secs, hyp=self.hyp_poseterior, APPLY_EPSRU=True, t_eps=0.025)
