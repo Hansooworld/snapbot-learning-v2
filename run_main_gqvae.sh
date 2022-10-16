@@ -1,4 +1,4 @@
-python main_vqvae.py \
+python main_gqvae.py \
 --env 4 \
 --torque 1.7 \
 --z_dim 32 \
@@ -14,7 +14,7 @@ python main_vqvae.py \
 --hyp_prior '{"g":"1/1", "l":"1/8", "w":"1e-8"}' \
 --hyp_posterior '{"g": "1/2", "l": "1/8", "w": "1e-8"}' \
 --lbtw_base 0.8 \
---device_idx -1 \
+--device_idx 0 \
 --VERBOSE True \
 --seed 0 \
 --lr_dlpg 0.01 \
