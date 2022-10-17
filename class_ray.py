@@ -2,7 +2,7 @@ import torch, ray
 import numpy as np
 from class_grp import scaleup_traj, get_anchors_from_traj
 
-@ray.remote(num_cpus=2)
+@ray.remote
 class RayRolloutWorkerClass:
     def __init__(self, env, device=None, worker_id=1) -> None:
         self.env    = env(render_mode=None, VERBOSE=False)

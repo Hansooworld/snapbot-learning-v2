@@ -47,7 +47,7 @@ class SnapbotTrajectoryUpdateClass():
         self.dur_sec    = dur_sec   
         self.max_repeat = max_repeat
         self.hyp_prior      = hyp_prior
-        self.hyp_poseterior = hyp_posterior
+        self.hyp_posterior = hyp_posterior
         self.lbtw_base   = lbtw_base
         if device_idx != int(-1):
             self.device = torch.device('cuda:{}'.format(device_idx) if torch.cuda.is_available() else 'cpu')
@@ -111,6 +111,7 @@ class SnapbotTrajectoryUpdateClass():
         ss_margin = 0.1
 
         if self.RAY:
+            ray.init(num_cpus=n_worker)
             n_worker     = n_worker
             self.workers = [RayRolloutWorkerClass.remote(env=Snapbot4EnvClass, device=torch.device('cpu'), worker_id=i) for i in range(int(n_worker))]
             # GRP parameter
@@ -158,7 +159,7 @@ class SnapbotTrajectoryUpdateClass():
                     else:
                         x_anchor = self.DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1).reshape(self.n_anchor, self.env.adim)
                         x_anchor[-1,:] = x_anchor[0,:]
-                        self.GRPPosterior.set_posterior(t_anchor, x_anchor, lbtw=lbtw, t_test=traj_secs, hyp=self.hyp_poseterior, APPLY_EPSRU=True, t_eps=0.025)
+                        self.GRPPosterior.set_posterior(t_anchor, x_anchor, lbtw=lbtw, t_test=traj_secs, hyp=self.hyp_posterior, APPLY_EPSRU=True, t_eps=0.025)
                         traj_joints, _ = self.GRPPosterior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min, ss_x_max=ss_x_max, ss_margin=ss_margin)
                         traj_joints_deg = scaleup_traj(self.env, np.array(traj_joints), DO_SQUASH=True, squash_margin=5)
                     t_anchor, x_anchor = get_anchors_from_traj(traj_secs, traj_joints, n_anchor=self.n_anchor) 
@@ -209,7 +210,7 @@ class SnapbotTrajectoryUpdateClass():
             self.DLPG.eval()
             x_anchor = self.DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1).reshape(self.n_anchor, self.env.adim)
             x_anchor[-1,:] = x_anchor[0,:]
-            self.GRPPosterior.set_posterior(t_anchor, x_anchor, lbtw=0.9, t_test=traj_secs, hyp=self.hyp_poseterior, APPLY_EPSRU=True, t_eps=0.025)
+            self.GRPPosterior.set_posterior(t_anchor, x_anchor, lbtw=0.9, t_test=traj_secs, hyp=self.hyp_posterior, APPLY_EPSRU=True, t_eps=0.025)
             policy4eval_traj   = self.GRPPosterior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min, ss_x_max=ss_x_max, ss_margin=ss_margin)[0]
             policy4eval_traj   = scaleup_traj(self.env, policy4eval_traj, DO_SQUASH=True, squash_margin=5)
             t_anchor, x_anchor = get_anchors_from_traj(traj_secs, policy4eval_traj, n_anchor=self.n_anchor)  

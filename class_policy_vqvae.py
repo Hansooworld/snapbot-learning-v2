@@ -111,6 +111,7 @@ class SnapbotTrajectoryUpdateClass():
 
         # Ray
         if self.RAY:
+            ray.init(num_cpus=n_worker)
             n_worker     = n_worker
             self.workers = [RayRolloutWorkerClass.remote(env=Snapbot4EnvClass, device=torch.device('cpu'), worker_id=i) for i in range(int(n_worker))]
             # GRP parameter

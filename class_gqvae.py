@@ -193,7 +193,7 @@ class GumbelQuantizedVariationalAutoEncoder(nn.Module):
         random_integers  = np.random.permutation(self.embedding_num)[:n_sample]
         random_embedding = self.GQ.embedding.weight.data[random_integers, :]
         x_sample = self.z_q_to_x_recon(z_q=random_embedding, c=c).detach().cpu().numpy()
-        return x_sample
+        return x_sample, random_integers
 
     def init_params(self,seed=0):
         """
