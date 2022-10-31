@@ -1,6 +1,6 @@
-import argparse, json, string
-from src.modules.class_snapbot import Snapbot4EnvClass, Snapbot3EnvClass
-from src.modules.class_policy_vqvae import SnapbotTrajectoryUpdateClass
+import argparse, json
+from class_snapbot import Snapbot4EnvClass, Snapbot3EnvClass
+from class_policy_vqvae import SnapbotTrajectoryUpdateClass
 
 def convert_to_float(frac_str):
     try:

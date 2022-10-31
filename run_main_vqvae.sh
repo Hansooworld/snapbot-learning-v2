@@ -16,7 +16,7 @@ python main_vqvae.py \
 --device_idx -1 \
 --VERBOSE True \
 --seed 0 \
---lr_dlpg 0.01 \
+--lr_dlpg 0.001 \
 --eps_dlpg 1e-8 \
 --n_worker 50 \
 --start_epoch 0 \

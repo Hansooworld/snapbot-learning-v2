@@ -1,16 +1,21 @@
 python main_cvae.py \
---env 3 \
---torque 2 \
+--env 4 \
+--torque 1.5 \
 --z_dim 32 \
 --c_dim 3 \
 --h_dims 128 128 \
 --var_max -1 \
 --n_anchor 20 \
 --dur_sec 2 \
---max_repeat 5 \
+--max_repeat 2 \
+--hyp_prior '{"g":"1/1", "l":"1/8", "w":"1e-8"}' \
+--hyp_posterior '{"g": "1/4", "l": "1/8", "w": "1e-8"}' \
 --lbtw_base 0.8 \
---device_idx 0 \
+--device_idx -1 \
 --seed 0 \
+--lr_dlpg 0.01 \
+--eps_dlpg 1e-8 \
+--n_worker 100 \
 --start_epoch 0 \
 --max_epoch 300 \
 --n_sim_roll 100 \
@@ -18,6 +23,6 @@ python main_cvae.py \
 --n_sim_update 64 \
 --n_sim_prev_consider 10 \
 --n_sim_prev_best_q 50 \
---init_prior_prob 0.5 \
---folder 23 \
---wandb True
+--init_prior_prob 0.2 \
+--folder 3 \
+--WANDB True

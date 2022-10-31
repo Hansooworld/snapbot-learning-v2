@@ -177,9 +177,9 @@ class DeepLatentPolicyGradientClass(nn.Module):
         z_sample = torch.randn(
             size=(n_sample,self.z_dim),dtype=torch.float32).to(self.device)
         if SKIP_Z_SAMPLE:
-            return self.zc_to_x_recon(z=z_sample,c=c)
+            return self.zc_to_x_recon(z=z_sample,c=c).detach().cpu().numpy()
         else:
-            return self.zc_to_x_recon(z=z_sample,c=c),z_sample
+            return self.zc_to_x_recon(z=z_sample,c=c).detach().cpu().numpy(), z_sample
     
     def init_params(self,seed=0):
         """
@@ -283,16 +283,17 @@ class DeepLatentPolicyGradientClass(nn.Module):
 
     def update(
         self,
-        x  = torch.randn(2,784),
-        c  = torch.randn(2,10),
-        q  = torch.ones(2),
-        lr = 0.001,
+        x   = torch.randn(2,784),
+        c   = torch.randn(2,10),
+        q   = torch.ones(2),
+        lr  = 0.001,
+        eps = 1e-4,
         recon_loss_gain = 10,
         beta = 0.01,
         max_iter   = 100,
         batch_size = 100
         ):
-        optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=(0.9, 0.99), eps=1e-4)
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=(0.9, 0.99), eps=eps)
         loss_sum  = 0
         n_x       = x.shape[0]
         for n_iter in range(max_iter):

@@ -2,13 +2,27 @@ import argparse, json
 from class_snapbot import Snapbot4EnvClass, Snapbot3EnvClass
 from class_policy_cvae import SnapbotTrajectoryUpdateClass
 
+def convert_to_float(frac_str):
+    try:
+        return float(frac_str)
+    except ValueError:
+        num, denom = frac_str.split('/')
+        frac = float(num) / float(denom)
+        return frac
+        
 def main(args):
     if args.env == int(4):
         env = Snapbot4EnvClass(render_mode=None)
     if args.env == int(3):
         env = Snapbot3EnvClass(render_mode=None)
+    args.hyp_prior = json.loads(args.hyp_prior)
+    args.hyp_posterior = json.loads(args.hyp_posterior)
+    for k, v in args.hyp_prior.items():
+        args.hyp_prior[k] = convert_to_float(v)
+    for k, v in args.hyp_posterior.items():
+        args.hyp_posterior[k] = convert_to_float(v)
     SnapbotPolicy = SnapbotTrajectoryUpdateClass(
-                                                name = "SnapbotTrajectoryUpdateClass",
+                                                name = "CVAE Trajectory",
                                                 env  = env,
                                                 k_p  = 0.2,
                                                 k_i  = 0.001,
@@ -26,10 +40,16 @@ def main(args):
                                                 hyp_prior     = args.hyp_prior,
                                                 hyp_posterior = args.hyp_posterior,
                                                 lbtw_base     = args.lbtw_base,
-                                                device_idx = args.device_idx
+                                                device_idx = args.device_idx,
+                                                VERBOSE    = args.VERBOSE,
+                                                WANDB = args.WANDB,
+                                                args  = args                                           
                                                 )
     SnapbotPolicy.update(
                         seed = args.seed,
+                        lr_dlpg     = args.lr_dlpg,
+                        eps_dlpg    = args.eps_dlpg,
+                        n_worker    = args.n_worker,                        
                         start_epoch = args.start_epoch,
                         max_epoch   = args.max_epoch,
                         n_sim_roll          = args.n_sim_roll,
@@ -38,8 +58,7 @@ def main(args):
                         n_sim_prev_consider = args.n_sim_prev_consider,
                         n_sim_prev_best_q   = args.n_sim_prev_best_q,
                         init_prior_prob = args.init_prior_prob,
-                        folder = args.folder,
-                        WANDB  = args.wandb
+                        folder = args.folder
                         )
 
 def str2bool(v):
@@ -63,11 +82,15 @@ if __name__ == "__main__":
     parser.add_argument("--n_anchor", default=20, type=int)
     parser.add_argument("--dur_sec", default=2, type=float)
     parser.add_argument("--max_repeat", default=5, type=int)
-    parser.add_argument("--hyp_prior", default={'g': 1/1, 'l': 1/8, 'w': 1e-8}, type=json.loads)
-    parser.add_argument("--hyp_posterior", default={'g': 1/4, 'l': 1/8, 'w': 1e-8}, type=json.loads)
+    parser.add_argument("--hyp_prior", default={'g': 1/1, 'l': 1/8, 'w': 1e-8}, type=str)
+    parser.add_argument("--hyp_posterior", default={'g': 1/4, 'l': 1/8, 'w': 1e-8}, type=str)
     parser.add_argument("--lbtw_base", default=0.8, type=float)
     parser.add_argument("--device_idx", default=0, type=int)
+    parser.add_argument("--VERBOSE", default=True, type=str2bool)
     parser.add_argument("--seed", default=0, type=int)
+    parser.add_argument("--lr_dlpg", default=0.001, type=float)
+    parser.add_argument("--eps_dlpg", default=1e-8, type=float)
+    parser.add_argument("--n_worker", default=50, type=int)
     parser.add_argument("--start_epoch", default=0, type=int)
     parser.add_argument("--max_epoch", default=300, type=int)
     parser.add_argument("--n_sim_roll", default=100, type=int)
@@ -77,6 +100,6 @@ if __name__ == "__main__":
     parser.add_argument("--n_sim_prev_best_q", default=50, type=int)
     parser.add_argument("--init_prior_prob", default=0.8, type=float)
     parser.add_argument("--folder", default=0, type=int)
-    parser.add_argument("--wandb", default=False, type=str2bool)
+    parser.add_argument("--WANDB", default=False, type=str2bool)
     args = parser.parse_args()
     main(args)

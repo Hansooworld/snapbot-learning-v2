@@ -24,14 +24,14 @@ class RayRolloutWorkerClass:
         if (exploration_coin < prior_prob) or (start_epoch < 1):
             GRPPrior.set_prior(n_data_prior=4, dim=self.env.adim, dur_sec=dur_sec, HZ=self.env.hz, hyp=hyp_prior)
             traj_joints, traj_secs = GRPPrior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min, ss_x_max=ss_x_max, ss_margin=ss_margin) 
-            traj_joints_deg = scaleup_traj(self.env, traj_joints, DO_SQUASH=False, squash_margin=5)
+            traj_joints_deg = scaleup_traj(self.env, traj_joints, DO_SQUASH=True, squash_margin=5)
         else:
-            x_anchor, _ = DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1)
+            x_anchor = DLPG.sample_x(c=torch.FloatTensor(c).reshape(1,-1).to(self.device), n_sample=1)[0]
             x_anchor = x_anchor.reshape(n_anchor, self.env.adim)
             x_anchor[-1,:] = x_anchor[0,:]
             GRPPosterior.set_posterior(t_anchor, x_anchor, lbtw=lbtw, t_test=traj_secs, hyp=hyp_posterior, APPLY_EPSRU=True, t_eps=0.025)
             traj_joints, _ = GRPPosterior.sample_one_traj(rand_type='Uniform', ORG_PERTURB=True, perturb_gain=0.0, ss_x_min=ss_x_min, ss_x_max=ss_x_max, ss_margin=ss_margin)
-            traj_joints_deg = scaleup_traj(self.env, np.array(traj_joints), DO_SQUASH=False, squash_margin=5)
+            traj_joints_deg = scaleup_traj(self.env, np.array(traj_joints), DO_SQUASH=True, squash_margin=5)
         t_anchor, x_anchor = get_anchors_from_traj(traj_secs, traj_joints, n_anchor=n_anchor) 
         return {'x_anchor':x_anchor, 'c': c, 'traj_joints_deg': traj_joints_deg}
 
